@@ -4,9 +4,10 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { ClassLegend } from "@/components/ClassLegend";
 import { AccuracyDisplay } from "@/components/AccuracyDisplay";
 import { ResultsViewer } from "@/components/ResultsViewer";
-import { Loader2, Satellite } from "lucide-react";
+import { Loader2, Satellite, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { NavLink } from "@/components/NavLink";
 
 const DEMO_CLASSES = [
   { id: 1, name: "Vegetação Densa", color: "#10b981" },
@@ -91,18 +92,27 @@ const Index = () => {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Satellite className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Satellite className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">
+                  GeoSegment AI
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Segmentação Semântica de Imagens Aéreas
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                GeoSegment AI
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Segmentação Semântica de Imagens Aéreas
-              </p>
-            </div>
+            <NavLink 
+              to="/sobre"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-accent transition-colors text-sm"
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden sm:inline">Sobre</span>
+            </NavLink>
           </div>
         </div>
       </header>
