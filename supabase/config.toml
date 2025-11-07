@@ -1,0 +1,4 @@
+project_id = "zxvszkdsrkdqetrkewck"
+
+[functions.segment-image]
+verify_jwt = false
