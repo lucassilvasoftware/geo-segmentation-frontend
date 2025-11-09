@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ClassLegend } from "@/components/ClassLegend";
 import { AccuracyDisplay } from "@/components/AccuracyDisplay";
 import { ResultsViewer } from "@/components/ResultsViewer";
-import { Loader2, Satellite, Info } from "lucide-react";
+import { Loader2, Satellite, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { NavLink } from "@/components/NavLink";
+import { segmentImage, checkHealth } from "@/services/segmentService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const DEMO_CLASSES = [
   { id: 1, name: "Vegetação Densa", color: "#10b981" },
@@ -23,6 +24,7 @@ const DEMO_CLASSES = [
 const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [results, setResults] = useState<{
     original: string;
     segmented: string;
@@ -31,6 +33,18 @@ const Index = () => {
     iou: number;
     classPercentages: number[];
   } | null>(null);
+
+  // Verificar saúde do backend ao carregar a página
+  useEffect(() => {
+    const verifyBackend = async () => {
+      const isHealthy = await checkHealth();
+      setBackendAvailable(isHealthy);
+      if (!isHealthy) {
+        toast.error("Serviço de segmentação indisponível. Verifique se o backend está rodando.");
+      }
+    };
+    verifyBackend();
+  }, []);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -43,26 +57,30 @@ const Index = () => {
   };
 
   const handleProcess = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile) {
+      toast.error("Selecione uma imagem antes de segmentar.");
+      return;
+    }
+
+    if (backendAvailable === false) {
+      toast.error("O serviço de segmentação está indisponível no momento.");
+      return;
+    }
 
     setIsProcessing(true);
     
     try {
-      // Criar FormData com o arquivo
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+      // Chamar a API de segmentação
+      const segmentedBlob = await segmentImage(selectedFile);
+      
+      // Criar URLs para exibição
+      const originalUrl = URL.createObjectURL(selectedFile);
+      const segmentedUrl = URL.createObjectURL(segmentedBlob);
 
-      // Chamar a função edge
-      const { data, error } = await supabase.functions.invoke('segment-image', {
-        body: formData,
-      });
-
-      if (error) throw error;
-
-      // Simular resultados (em produção, viriam do backend)
+      // Simular métricas (em produção, viriam do backend se disponíveis)
       setResults({
-        original: URL.createObjectURL(selectedFile),
-        segmented: URL.createObjectURL(selectedFile), // Placeholder
+        original: originalUrl,
+        segmented: segmentedUrl,
         accuracy: 0.89,
         f1Score: 0.87,
         iou: 0.82,
@@ -72,7 +90,8 @@ const Index = () => {
       toast.success("Segmentação concluída com sucesso!");
     } catch (error) {
       console.error("Erro ao processar:", error);
-      toast.error("Erro ao processar a imagem. Por favor, tente novamente.");
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Não foi possível processar a imagem. ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
@@ -119,6 +138,19 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
+        {/* Alerta de backend indisponível */}
+        {backendAvailable === false && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              O serviço de segmentação está indisponível. Verifique se o backend está rodando em{" "}
+              <code className="text-xs bg-background/50 px-1 py-0.5 rounded">
+                {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}
+              </code>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Panel - Upload & Controls */}
           <div className="lg:col-span-1 space-y-6">

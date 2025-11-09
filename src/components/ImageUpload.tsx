@@ -27,25 +27,25 @@ export const ImageUpload = ({ onFileSelect, selectedFile, onClear }: ImageUpload
     setIsDragging(false);
     
     const files = Array.from(e.dataTransfer.files);
-    const tifFile = files.find(f => f.name.toLowerCase().endsWith('.tif') || f.name.toLowerCase().endsWith('.tiff'));
+    const imageFile = files.find(f => f.type.startsWith('image/'));
     
-    if (tifFile) {
-      onFileSelect(tifFile);
-      toast.success("GeoTIFF carregado com sucesso!");
+    if (imageFile) {
+      onFileSelect(imageFile);
+      toast.success("Imagem carregada com sucesso!");
     } else {
-      toast.error("Por favor, selecione um arquivo .tif ou .tiff");
+      toast.error("Por favor, selecione um arquivo de imagem válido");
     }
   }, [onFileSelect]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff')) {
-        onFileSelect(file);
-        toast.success("GeoTIFF carregado com sucesso!");
-      } else {
-        toast.error("Por favor, selecione um arquivo .tif ou .tiff");
+      if (!file.type.startsWith('image/')) {
+        toast.error("Por favor, selecione um arquivo de imagem válido");
+        return;
       }
+      onFileSelect(file);
+      toast.success("Imagem carregada com sucesso!");
     }
   };
 
@@ -61,20 +61,20 @@ export const ImageUpload = ({ onFileSelect, selectedFile, onClear }: ImageUpload
             : 'border-border hover:border-primary/50'
         }`}
       >
-        <input
-          type="file"
-          id="file-upload"
-          className="hidden"
-          accept=".tif,.tiff"
-          onChange={handleFileChange}
-        />
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
         <label htmlFor="file-upload" className="cursor-pointer">
           <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <p className="text-sm text-foreground mb-2">
-            Arraste um arquivo GeoTIFF ou clique para selecionar
+            Arraste uma imagem ou clique para selecionar
           </p>
           <p className="text-xs text-muted-foreground">
-            Formatos aceitos: .tif, .tiff (até 20MB)
+            Formatos aceitos: JPG, PNG, TIFF e outros formatos de imagem
           </p>
         </label>
       </div>
