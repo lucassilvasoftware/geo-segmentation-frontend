@@ -1,26 +1,90 @@
+# -------------------------------------
 # Logs
+# -------------------------------------
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
+bun-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# -------------------------------------
+# Dependencies
+# -------------------------------------
+node_modules/
+.pnp/
+.pnp.js
 
-# Editor directories and files
+# -------------------------------------
+# Build output
+# -------------------------------------
+dist/
+dist-ssr/
+build/
+.out/
+.cache/
+.next/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# -------------------------------------
+# Environment files
+# -------------------------------------
+.env
+.env.*
+!.env.example
+
+# -------------------------------------
+# Local settings and editor configs
+# -------------------------------------
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.DS_Store
+Thumbs.db
 
-.env
+# -------------------------------------
+# OS-specific files
+# -------------------------------------
+# macOS
+.AppleDouble
+.LSOverride
+# Windows
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# -------------------------------------
+# Package managers lock files (optional)
+# (keep only one — uncomment the one you use)
+# -------------------------------------
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# bun.lockb
+
+# -------------------------------------
+# Miscellaneous
+# -------------------------------------
+*.local
+*.env.backup
+*.bak
+*.tmp
+
+# -------------------------------------
+# Tailwind and TypeScript cache
+# -------------------------------------
+*.d.ts
+*.tsbuildinfo
+
+# -------------------------------------
+# Lovable / Vite specific temporary files
+# -------------------------------------
+vite.config.timestamp-*
