@@ -2,45 +2,56 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ClassLegend } from "@/components/ClassLegend";
-import { AccuracyDisplay } from "@/components/AccuracyDisplay";
+// import { AccuracyDisplay } from "@/components/AccuracyDisplay"; // Comentado por enquanto
 import { ResultsViewer } from "@/components/ResultsViewer";
 import { Loader2, Satellite, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { NavLink } from "@/components/NavLink";
-import { segmentImage, checkHealth } from "@/services/segmentService";
+import {
+  checkHealth,
+  segmentImageFull,
+  SegmentClassStat,
+} from "@/services/segmentService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const DEMO_CLASSES = [
-  { id: 1, name: "Vegetação Densa", color: "#10b981" },
-  { id: 2, name: "Vegetação Esparsa", color: "#84cc16" },
-  { id: 3, name: "Solo Exposto", color: "#f59e0b" },
-  { id: 4, name: "Área Urbana", color: "#ef4444" },
-  { id: 5, name: "Corpo d'água", color: "#3b82f6" },
-  { id: 6, name: "Estrada", color: "#6b7280" },
-  { id: 7, name: "Agricultura", color: "#eab308" },
-  { id: 8, name: "Sombra/Nuvem", color: "#1f2937" },
-];
+const API_URL_DISPLAY =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+// Cores alinhadas com o backend
+const CLASS_COLOR_MAP: Record<number, string> = {
+  0: "#ff0000", // Urbano
+  1: "#267300", // Vegetação Densa
+  2: "#000000", // Sombra
+  3: "#85c77e", // Vegetação Esparsa
+  4: "#ffff00", // Agricultura
+  5: "#808080", // Rocha
+  6: "#8b4513", // Solo Exposto
+  7: "#5475a8", // Água
+};
 
 const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isTiff, setIsTiff] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [results, setResults] = useState<{
-    original: string;
-    segmented: string;
+    original: string; // URL da imagem original (quando suportada)
+    segmented: string; // URL (data URL) da máscara segmentada
+    stats: SegmentClassStat[];
     accuracy: number;
     f1Score: number;
     iou: number;
-    classPercentages: number[];
   } | null>(null);
 
-  // Verificar saúde do backend ao carregar a página
+  // Verifica a saúde do backend ao carregar a página
   useEffect(() => {
     const verifyBackend = async () => {
       const isHealthy = await checkHealth();
       setBackendAvailable(isHealthy);
       if (!isHealthy) {
-        toast.error("Serviço de segmentação indisponível. Verifique se o backend está rodando.");
+        toast.error(
+          "Serviço de segmentação indisponível. Verifique se o backend está rodando."
+        );
       }
     };
     verifyBackend();
@@ -49,11 +60,16 @@ const Index = () => {
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setResults(null);
+
+    const lower = file.name.toLowerCase();
+    const tiff = lower.endsWith(".tif") || lower.endsWith(".tiff");
+    setIsTiff(tiff);
   };
 
   const handleClear = () => {
     setSelectedFile(null);
     setResults(null);
+    setIsTiff(false);
   };
 
   const handleProcess = async () => {
@@ -68,43 +84,66 @@ const Index = () => {
     }
 
     setIsProcessing(true);
-    
-    try {
-      // Chamar a API de segmentação
-      const segmentedBlob = await segmentImage(selectedFile);
-      
-      // Criar URLs para exibição
-      const originalUrl = URL.createObjectURL(selectedFile);
-      const segmentedUrl = URL.createObjectURL(segmentedBlob);
 
-      // Simular métricas (em produção, viriam do backend se disponíveis)
+    try {
+      // Sempre geramos uma URL para o arquivo original,
+      // mas só vamos usar na UI se não for TIFF.
+      const originalUrl = URL.createObjectURL(selectedFile);
+
+      // Chama /segment-full para obter máscara + stats
+      const { segmentedUrl, stats } = await segmentImageFull(selectedFile);
+
       setResults({
         original: originalUrl,
         segmented: segmentedUrl,
+        stats,
+        // Métricas mockadas por enquanto; bloco visual está comentado.
         accuracy: 0.89,
         f1Score: 0.87,
         iou: 0.82,
-        classPercentages: [15.3, 8.7, 12.1, 22.4, 5.6, 3.2, 28.5, 4.2],
       });
 
       toast.success("Segmentação concluída com sucesso!");
     } catch (error) {
       console.error("Erro ao processar:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
       toast.error(`Não foi possível processar a imagem. ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // Exportar máscara segmentada (front-only)
   const handleExport = () => {
-    toast.success("Exportação iniciada! O arquivo será baixado em breve.");
+    if (!results) {
+      toast.error("Nenhum resultado para exportar.");
+      return;
+    }
+
+    try {
+      const link = document.createElement("a");
+      link.href = results.segmented; // data:image/png;base64,... vindo do backend
+      link.download = "segmentacao_mascara.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Máscara segmentada exportada com sucesso.");
+    } catch (error) {
+      console.error("Erro na exportação:", error);
+      toast.error("Não foi possível exportar a máscara segmentada.");
+    }
   };
 
-  const classesWithPercentages = DEMO_CLASSES.map((cls, idx) => ({
-    ...cls,
-    percentage: results?.classPercentages[idx],
-  }));
+  // Legenda com base nas stats reais do backend
+  const classesWithPercentages =
+    results?.stats.map((s) => ({
+      id: s.class_id,
+      name: s.class_name,
+      percentage: s.percent,
+      color: CLASS_COLOR_MAP[s.class_id] || "#ffffff",
+    })) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,7 +164,7 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            <NavLink 
+            <NavLink
               to="/sobre"
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-accent transition-colors text-sm"
             >
@@ -143,16 +182,17 @@ const Index = () => {
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              O serviço de segmentação está indisponível. Verifique se o backend está rodando em{" "}
+              O serviço de segmentação está indisponível. Verifique se o backend
+              está rodando em{" "}
               <code className="text-xs bg-background/50 px-1 py-0.5 rounded">
-                {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}
+                {API_URL_DISPLAY}
               </code>
             </AlertDescription>
           </Alert>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel - Upload & Controls */}
+          {/* Painel esquerdo - Upload & Controles */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-card rounded-lg border border-border p-6 space-y-4">
               <div>
@@ -160,10 +200,12 @@ const Index = () => {
                   1. Carregar Imagem
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Selecione um arquivo GeoTIFF para segmentação
+                  Selecione um arquivo de imagem. Para visualização direta no
+                  navegador use PNG/JPEG; arquivos GeoTIFF (.tif) serão
+                  processados, mas não possuem pré-visualização nativa.
                 </p>
               </div>
-              
+
               <ImageUpload
                 onFileSelect={handleFileSelect}
                 selectedFile={selectedFile}
@@ -189,6 +231,16 @@ const Index = () => {
 
             {results && (
               <>
+                {/* 
+                  ===========================================
+                  BLOCO DE PRECISÃO (AccuracyDisplay)
+                  -------------------------------------------
+                  Temporariamente comentado.
+                  Quando o backend passar a retornar
+                  métricas reais, basta descomentar.
+                  ===========================================
+                */}
+                {/*
                 <div className="bg-card rounded-lg border border-border p-6">
                   <AccuracyDisplay
                     accuracy={results.accuracy}
@@ -196,6 +248,7 @@ const Index = () => {
                     iou={results.iou}
                   />
                 </div>
+                */}
 
                 <div className="bg-card rounded-lg border border-border p-6">
                   <ClassLegend classes={classesWithPercentages} />
@@ -204,7 +257,7 @@ const Index = () => {
             )}
           </div>
 
-          {/* Right Panel - Results */}
+          {/* Painel direito - Resultados */}
           <div className="lg:col-span-2">
             <div className="bg-card rounded-lg border border-border p-6 min-h-[600px]">
               {!results ? (
@@ -216,11 +269,32 @@ const Index = () => {
                     Nenhuma segmentação disponível
                   </h3>
                   <p className="text-sm text-muted-foreground max-w-md">
-                    Carregue uma imagem GeoTIFF e clique em "Processar Segmentação" 
-                    para visualizar os resultados da análise.
+                    Carregue uma imagem e clique em &quot;Processar
+                    Segmentação&quot; para visualizar a máscara gerada e as
+                    estatísticas de uso do solo.
                   </p>
                 </div>
+              ) : isTiff ? (
+                // Caso especial: arquivo .tif
+                <div className="flex flex-col items-center text-center gap-4 py-10">
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    A imagem original está em formato{" "}
+                    <code>.tif</code>, que não é suportado diretamente
+                    pelos navegadores para pré-visualização. Abaixo
+                    você pode visualizar e exportar a máscara
+                    segmentada gerada a partir desse arquivo.
+                  </p>
+                  <img
+                    src={results.segmented}
+                    alt="Máscara segmentada"
+                    className="max-w-full max-h-[420px] rounded-lg border border-border object-contain"
+                  />
+                  <Button onClick={handleExport} className="mt-2">
+                    Baixar máscara segmentada
+                  </Button>
+                </div>
               ) : (
+                // Fluxo normal: formatos suportados (PNG/JPEG)
                 <ResultsViewer
                   originalImage={results.original}
                   segmentedImage={results.segmented}
